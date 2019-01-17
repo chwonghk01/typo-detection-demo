@@ -5,10 +5,16 @@ import numpy as np
 import seaborn as sns
 import requests
 import json
+from bs4 import BeautifulSoup
 
-def visualize_typo(font_path, text):
+
+def visualize_article_typo(article_id):
+  visualize_typo(get_content(article_id, verbose=False)[1])
+
+
+def visualize_typo(text):
   text, pred = check_typo(text)
-  visualize_article(font_path, text, pred)
+  visualize_article(text, pred)
 
 
 def visualize(asset_path, inp, truth, pred=None, display_rows=1):
@@ -49,8 +55,8 @@ def _pad_to_fixed_width(list, width):
     return np.reshape(p, (len(p) // width, width))
 
 
-def visualize_article(font_path, text:str, pred, width=64):
-    font_files = font_manager.findSystemFonts(fontpaths=font_path)
+def visualize_article(text:str, pred, width=64):
+    font_files = font_manager.findSystemFonts(fontpaths='./')
     font_list = font_manager.createFontList(font_files)
     font_manager.fontManager.ttflist.extend(font_list)
     sns.set_style("darkgrid",{"font.sans-serif":['SimHei', 'Arial']})
@@ -71,3 +77,60 @@ def check_typo(text):
   resp = requests.post('https://us-east1-data-poc-227904.cloudfunctions.net/typo-detection', json=[{"text": text}])
   result = json.loads(resp.content)
   return result[0]['text'], result[0]['predictions']
+
+
+def _clean_me(html):
+    soup = BeautifulSoup(html, 'lxml')
+    for s in soup(['script', 'style']):
+        s.decompose()
+    return ' '.join(soup.stripped_strings)
+
+
+def _parse_main_content(article, verbose=True):
+    article = json.loads(article)
+
+    content_type = article['contentType']
+    teaser = ' '.join(article['teaser'])
+    html_string = [_['htmlString'] for _ in article['blocks'] if 'htmlString' in _]
+    main_content = ' '.join(_ for _ in html_string if _)
+    main_content = teaser + ' ' + main_content
+
+    # Get image captions for photostories
+    if content_type == 'photostory':
+        image_caption = [_['image']['caption'] for _ in article['blocks'] if 'image' in _ and _['image']]
+        captions = ' '.join(_ for _ in image_caption if _)
+
+        gallery = [_['images'] for _ in article['blocks'] if 'images' in _ and _['images'] and _['blockType'] == 'gallery']
+        gallery_captions = ' '.join(itertools.chain(*[[_['caption'] for _ in _] for _ in gallery]))
+        main_content += ' '.join([captions, gallery_captions])
+
+    # Remove HTML tags
+    return _clean_me(main_content)
+
+
+def get_article(article_id, verbose=True, returnAsJson=False):
+    if type(article_id) is 'str':
+        article_id = int(float(article_id))
+    response = requests.get('https://int-data.api.hk01.com/v2/articles/{0:d}'.format(article_id))
+    if response.status_code != 200:
+        if verbose:
+            print('Error for article id = {0:d}, status code = {1:d}'.format(article_id, response.status_code))
+        return None, response.status_code
+
+    if returnAsJson:
+        return response.json(), response.status_code
+    return response.content.decode('utf-8'), response.status_code
+
+
+def get_content(article_id, verbose=True):
+    """
+    Get article's main content from latest version of API by article_id
+    Return a tuple of (article_id, main_content, status_code). For non-200 status code,
+    main_content will be a space.
+    """
+    article, status_code = get_article(article_id, verbose=verbose)
+    if status_code != 200:
+        return article_id, '', status_code
+
+    main_content = _parse_main_content(article)
+    return article_id, main_content, status_code
