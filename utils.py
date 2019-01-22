@@ -1,3 +1,4 @@
+import itertools
 import matplotlib
 import matplotlib.pyplot as plt
 from matplotlib import font_manager
