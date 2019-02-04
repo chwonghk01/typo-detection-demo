@@ -9,6 +9,12 @@ import json
 from bs4 import BeautifulSoup
 
 
+def show_article_typo(article_id, threshold=0.8, window=20):
+    text, pred = check_typo(get_content(article_id, verbose=False)[1])
+    for idx in (np.array(pred) >= threshold).nonzero()[0]:
+        print(text[idx - window: idx] + '____' + text[idx] +  '____' + text[idx+1:idx+window+1])
+
+
 def visualize_article_typo(article_id):
   visualize_typo(get_content(article_id, verbose=False)[1])
 
