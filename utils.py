@@ -81,8 +81,13 @@ def visualize_article(text:str, pred, width=64):
 
 
 def check_typo(text):
-  resp = requests.post('https://us-east1-data-poc-227904.cloudfunctions.net/typo-detection', json=[{"text": text}])
-  result = json.loads(resp.content)
+    resp = requests.post('https://us-east1-data-poc-227904.cloudfunctions.net/typo-detection', json=[{"text": text}])
+    try:
+        result = json.loads(resp.content)
+    except:
+        print(resp)
+        print(resp.content)
+
   return result[0]['text'], result[0]['predictions']
 
 
