@@ -7,6 +7,15 @@ import seaborn as sns
 import requests
 import json
 from bs4 import BeautifulSoup
+import sys
+
+
+def show_article_typo(article_id, threshold=0.8, window=20, file=None):
+    if file is None:
+        file = sys.stdout
+    text, pred = check_typo(get_content(article_id, verbose=False)[1])
+    for idx in (np.array(pred) >= threshold).nonzero()[0]:
+        print(text[idx - window: idx] + '____' + text[idx] +  '____' + text[idx+1:idx+window+1], file=file)
 
 
 def visualize_article_typo(article_id):
@@ -75,9 +84,14 @@ def visualize_article(text:str, pred, width=64):
 
 
 def check_typo(text):
-  resp = requests.post('https://us-east1-data-poc-227904.cloudfunctions.net/typo-detection', json=[{"text": text}])
-  result = json.loads(resp.content)
-  return result[0]['text'], result[0]['predictions']
+    resp = requests.post('https://us-east1-data-poc-227904.cloudfunctions.net/typo-detection', json=[{"text": text}])
+    try:
+        result = json.loads(resp.content)
+    except:
+        print(resp)
+        print(resp.content)
+
+    return result[0]['text'], result[0]['predictions']
 
 
 def _clean_me(html):
