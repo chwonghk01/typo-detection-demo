@@ -88,7 +88,7 @@ def check_typo(text):
         print(resp)
         print(resp.content)
 
-  return result[0]['text'], result[0]['predictions']
+    return result[0]['text'], result[0]['predictions']
 
 
 def _clean_me(html):
